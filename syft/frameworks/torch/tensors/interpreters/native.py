@@ -58,6 +58,27 @@ class TorchTensor(AbstractTensor):
     def has_child(self):
         return hasattr(self, "child")
 
+    def trigger_origin_backward(self):
+        assert self.origin is not None
+
+        location = self.origin['sender']
+        id_at_location = self.origin['origin_id']
+
+        location = self.owner.get_worker(location)
+        print(location)
+        origin_ptr = self.create_pointer(location=location, id_at_location=id_at_location, garbage_collect_data=False)
+        print('origin_ptr', origin_ptr)
+        # set the gradient
+        self.owner.send_command(location, message=('set_grad', origin_ptr, (self.grad, ), {}))
+
+        # call backward
+        origin_ptr.backward(self.grad)
+
+
+
+    def set_grad(self, grad):
+        self.grad = grad
+
     @property
     def tags(self):
         if self.has_child():
@@ -135,6 +156,7 @@ class TorchTensor(AbstractTensor):
     @grad.setter
     def grad(self, new_grad):
 
+        print('Setting Gradient on', self.id, self.owner.id)
         # If grad is not a pure torch tensor you need to store the chain in a
         # specific place otherwise it will get deleted
         if new_grad is not None and (

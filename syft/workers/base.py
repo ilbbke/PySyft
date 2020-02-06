@@ -309,6 +309,11 @@ class BaseWorker(AbstractWorker, ObjectStorage):
         # Step 1: route message to appropriate function
         response = self._message_router[type(msg)](msg.contents)
 
+        if isinstance(msg, ObjectMessage):
+            print('sender', msg.sender, 'to', self.id)
+            #print(msg.contents)
+            msg.contents.origin = {'sender': msg.sender, 'origin_id': msg.origin_id}
+
         # Step 2: Serialize the message to simple python objects
         bin_response = sy.serde.serialize(response, worker=self)
 
@@ -604,7 +609,7 @@ class BaseWorker(AbstractWorker, ObjectStorage):
             location: A BaseWorker instance indicating the worker which should
                 receive the object.
         """
-        return self.send_msg(ObjectMessage(obj), location)
+        return self.send_msg(ObjectMessage(obj, sender=self.id, origin_id=obj.id), location)
 
     def request_obj(
         self, obj_id: Union[str, int], location: "BaseWorker", user=None, reason: str = ""
